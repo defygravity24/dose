@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0e1117">
+<title>Dose</title>
+<style>
+:root {
+  --bg: #0e1117;
+  --bg-2: #161b22;
+  --panel: #1c232e;
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #e9eef5;
+  --muted: #8b97a7;
+  --accent: #7aa2ff;
+  --accent-ink: #081633;
+  --good: #4fd6a5;
+  --bad: #ff5a5f;
+  --warn: #f5b942;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.app { max-width: 820px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; }
+
+/* topbar */
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 20px 14px;
+  background: rgba(14, 17, 23, 0.85); backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+.brand { font-weight: 800; font-size: 19px; letter-spacing: .3px; display: flex; align-items: center; gap: 9px; cursor: pointer; }
+.brand-mark { width: 22px; height: 22px; border-radius: 7px; background: var(--accent); color: var(--accent-ink);
+  display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 900; }
+.topbar nav { display: flex; gap: 4px; }
+.topbar nav button { background: transparent; border: 0; color: var(--muted); font-size: 15px; font-weight: 600;
+  padding: 8px 12px; border-radius: 10px; cursor: pointer; font-family: inherit; }
+.topbar nav button:hover { color: var(--text); background: var(--bg-2); }
+.topbar nav button.on { color: var(--accent); background: rgba(122, 162, 255, .12); }
+
+.view { padding: 20px 20px calc(40px + env(safe-area-inset-bottom, 0px)); flex: 1; }
+.hidden { display: none !important; }
+
+/* day header */
+.day-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.day-title { font-size: 24px; font-weight: 800; }
+.day-sub { color: var(--muted); font-size: 13.5px; font-weight: 600; margin-bottom: 18px; display: flex; gap: 10px; align-items: center; }
+.day-nav { display: flex; gap: 6px; align-items: center; }
+.day-nav button, .btn {
+  background: var(--bg-2); border: 1px solid var(--line); color: var(--text);
+  height: 34px; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 700; font-family: inherit; padding: 0 12px;
+}
+.day-nav button { width: 34px; padding: 0; }
+.day-nav button:hover, .btn:hover { border-color: rgba(255,255,255,.22); }
+.day-nav button:disabled { opacity: .35; cursor: default; }
+.day-nav input[type="date"] { background: var(--bg-2); border: 1px solid var(--line); color: var(--text); height: 34px; border-radius: 10px;
+  padding: 0 10px; font-size: 13.5px; font-weight: 600; font-family: inherit; color-scheme: dark; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.btn.danger { color: var(--bad); }
+.btn.sm { height: 28px; font-size: 12.5px; padding: 0 10px; }
+.saved-flag { color: var(--good); font-size: 12.5px; font-weight: 700; opacity: 0; transition: opacity .25s; }
+.saved-flag.on { opacity: 1; }
+
+/* week strip */
+.week-strip { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin-bottom: 16px; }
+.wk { background: var(--panel); border: 1px solid var(--line); border-radius: 11px; padding: 9px 6px 8px; text-align: center; min-width: 0; }
+.wk .v { font-size: 17px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.wk .v small { font-size: 10.5px; color: var(--muted); font-weight: 700; margin-left: 1px; }
+.wk .k { color: var(--muted); font-size: 10.5px; font-weight: 700; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wk .d { font-size: 10px; font-weight: 800; margin-top: 2px; }
+.wk .d.up { color: var(--good); } .wk .d.down { color: var(--bad); } .wk .d.flat { color: var(--muted); }
+.week-title { display: flex; justify-content: space-between; align-items: baseline; color: var(--muted); font-size: 12.5px; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .4px; }
+.week-title b { color: var(--text); font-weight: 800; text-transform: none; letter-spacing: 0; font-size: 13.5px; }
+@media (max-width: 420px) { .week-strip { grid-template-columns: repeat(3, 1fr); } }
+
+/* step dots */
+.dots { display: flex; gap: 6px; align-items: center; margin-bottom: 14px; }
+.dots button { flex: 1; height: 5px; border-radius: 3px; border: 0; background: rgba(255,255,255,.1); cursor: pointer; padding: 0; }
+.dots button.done { background: rgba(122,162,255,.45); }
+.dots button.cur { background: var(--accent); }
+.step-nav { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+.step-nav .cnt { color: var(--muted); font-size: 12.5px; font-weight: 700; }
+.step-q { font-size: 22px; font-weight: 800; margin: 2px 0 4px; }
+.step-hint { color: var(--muted); font-size: 13.5px; font-weight: 600; margin-bottom: 16px; }
+.big .scale button { height: 64px; font-size: 22px; border-radius: 14px; }
+.big .scale.words button { font-size: 16px; }
+.big .ends { font-size: 13px; margin-top: 10px; }
+
+/* summary */
+.sum-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
+.sum-row:last-child { border-bottom: 0; }
+.sum-row:hover .sum-v { color: var(--accent); }
+.sum-row .sum-k { font-weight: 700; font-size: 15px; }
+.sum-row .sum-w { color: var(--muted); font-size: 12.5px; font-weight: 600; margin-left: 8px; }
+.sum-row .sum-v { font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; }
+.sum-row .sum-v.none { color: var(--muted); font-weight: 600; font-size: 13.5px; }
+.sum-bar { display: inline-flex; gap: 3px; margin-right: 10px; vertical-align: middle; }
+.sum-bar i { width: 9px; height: 9px; border-radius: 3px; background: rgba(255,255,255,.1); display: inline-block; }
+.sum-bar i.on { background: var(--accent); }
+.done-banner { display: flex; align-items: center; gap: 10px; background: rgba(79,214,165,.1); border: 1px solid rgba(79,214,165,.3); color: var(--good);
+  border-radius: 12px; padding: 11px 14px; font-weight: 700; font-size: 14px; margin-bottom: 12px; }
+
+/* cards */
+.cards { display: flex; flex-direction: column; gap: 12px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 15px 17px; }
+.card-label { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.card-label .t { font-weight: 700; font-size: 15px; white-space: nowrap; }
+.card-label .hint { text-align: right; }
+.card-label .hint { color: var(--muted); font-size: 12.5px; font-weight: 600; }
+.card h3 { margin: 0 0 12px; font-size: 16px; font-weight: 800; }
+
+/* scale buttons */
+.scale { display: grid; gap: 7px; }
+.scale button {
+  background: var(--bg-2); border: 1px solid var(--line); color: var(--muted);
+  height: 46px; border-radius: 11px; font-size: 17px; font-weight: 800; cursor: pointer; font-family: inherit;
+  transition: transform .08s, border-color .12s, background .12s;
+}
+.scale button:hover { border-color: rgba(255,255,255,.22); color: var(--text); }
+.scale button:active { transform: scale(.96); }
+.scale button.sel { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.scale.words button { font-size: 14px; }
+.ends { display: flex; justify-content: space-between; color: var(--muted); font-size: 12px; font-weight: 600; margin-top: 7px; }
+
+/* meds checklist */
+.medlist { display: flex; flex-direction: column; gap: 8px; }
+.medrow { display: flex; align-items: center; gap: 12px; padding: 10px 12px; background: var(--bg-2); border: 1px solid var(--line);
+  border-radius: 11px; cursor: pointer; user-select: none; }
+.medrow:hover { border-color: rgba(255,255,255,.2); }
+.medrow .box { width: 22px; height: 22px; border-radius: 7px; border: 2px solid rgba(139,151,167,.5); display: inline-flex;
+  align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: var(--accent-ink); flex: none; }
+.medrow.done .box { background: var(--good); border-color: var(--good); }
+.medrow .nm { font-weight: 700; font-size: 15px; }
+.medrow .ds { color: var(--muted); font-size: 13px; font-weight: 600; margin-left: auto; }
+.all-row { display: flex; justify-content: flex-end; margin-top: 8px; }
+
+textarea, input[type="text"], select {
+  width: 100%; background: var(--bg-2); border: 1px solid var(--line); color: var(--text); border-radius: 10px;
+  font-family: inherit; font-size: 15px; padding: 10px 12px; color-scheme: dark;
+}
+textarea { resize: none; min-height: 60px; line-height: 1.5; }
+textarea:focus, input:focus, select:focus { outline: none; border-color: var(--accent); }
+textarea::placeholder, input::placeholder { color: rgba(139,151,167,.55); }
+
+/* trends */
+.seg { display: inline-flex; background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; padding: 3px; gap: 2px; }
+.seg button { background: transparent; border: 0; color: var(--muted); font-weight: 700; font-size: 13px; padding: 6px 12px;
+  border-radius: 8px; cursor: pointer; font-family: inherit; }
+.seg button.on { background: var(--panel); color: var(--text); }
+.trend-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+.trend-head h2 { margin: 0; font-size: 22px; font-weight: 800; }
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 14px; }
+.stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.stat .v { font-size: 22px; font-weight: 800; }
+.stat .k { color: var(--muted); font-size: 12.5px; font-weight: 600; margin-top: 2px; }
+.chart-card { padding: 14px 16px 10px; }
+.chart-card svg { width: 100%; display: block; overflow: visible; }
+.chart-card .card-label { margin-bottom: 4px; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: 12px; font-weight: 600; margin-top: 6px; }
+.legend i { display: inline-block; width: 10px; height: 2px; background: var(--accent); vertical-align: middle; margin-right: 5px; }
+.legend i.chg { background: var(--warn); }
+.empty { color: var(--muted); font-size: 14px; padding: 8px 0; }
+
+/* before/after table */
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th, td { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); }
+th { color: var(--muted); font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
+td.num { font-variant-numeric: tabular-nums; }
+.up { color: var(--good); font-weight: 700; }
+.down { color: var(--bad); font-weight: 700; }
+.flat { color: var(--muted); }
+
+/* meds view */
+.mrow { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.mrow:last-child { border-bottom: 0; }
+.mrow .nm { font-weight: 700; font-size: 15px; }
+.mrow .sub { color: var(--muted); font-size: 13px; font-weight: 600; margin-top: 2px; }
+.mrow .acts { margin-left: auto; display: flex; gap: 6px; }
+.crow { display: flex; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--line); align-items: flex-start; }
+.crow:last-child { border-bottom: 0; }
+.crow .dt { color: var(--muted); font-size: 12.5px; font-weight: 700; width: 74px; flex: none; padding-top: 2px; font-variant-numeric: tabular-nums; }
+.crow .body { flex: 1; }
+.crow .ev { font-weight: 700; font-size: 14.5px; }
+.crow .ev .pill { display: block; width: max-content; margin-bottom: 4px; }
+.crow .acts { flex: none; display: flex; gap: 6px; }
+.crow .nt { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.pill { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 8px; border-radius: 999px; margin-right: 6px; vertical-align: 1px; text-transform: uppercase; letter-spacing: .3px; }
+.pill.started { background: rgba(79,214,165,.18); color: var(--good); }
+.pill.increased { background: rgba(122,162,255,.18); color: var(--accent); }
+.pill.decreased { background: rgba(245,185,66,.18); color: var(--warn); }
+.pill.stopped { background: rgba(255,90,95,.18); color: var(--bad); }
+.pill.note { background: rgba(139,151,167,.18); color: var(--muted); }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-grid .full { grid-column: 1 / -1; }
+.form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+.section-gap { margin-top: 14px; }
+.small-muted { color: var(--muted); font-size: 12.5px; line-height: 1.5; }
+.io-row { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 520px) { .form-grid { grid-template-columns: 1fr; } .topbar nav button { padding: 8px 9px; font-size: 14px; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand" onclick="go('today')"><span class="brand-mark">D</span>Dose</div>
+    <nav>
+      <button id="nav-today" class="on" onclick="go('today')">Today</button>
+      <button id="nav-trends" onclick="go('trends')">Trends</button>
+      <button id="nav-meds" onclick="go('meds')">Meds</button>
+    </nav>
+  </div>
+
+  <!-- TODAY -->
+  <div id="view-today" class="view">
+    <div class="day-head">
+      <div class="day-title" id="day-title">Today</div>
+      <div class="day-nav">
+        <button onclick="shiftDay(-1)">‹</button>
+        <input type="date" id="day-pick" onchange="setDay(this.value)">
+        <button id="next-btn" onclick="shiftDay(1)">›</button>
+      </div>
+    </div>
+    <div class="day-sub"><span id="day-date"></span><span class="saved-flag" id="saved-flag">Saved</span></div>
+    <div class="week-strip" id="week-strip"></div>
+    <div class="dots" id="dots"></div>
+    <div class="cards" id="q-cards"></div>
+  </div>
+
+  <!-- TRENDS -->
+  <div id="view-trends" class="view hidden">
+    <div class="trend-head">
+      <h2>Trends</h2>
+      <div class="seg" id="range-seg">
+        <button data-r="14" onclick="setRange(14)">2w</button>
+        <button data-r="30" class="on" onclick="setRange(30)">30d</button>
+        <button data-r="90" onclick="setRange(90)">90d</button>
+      </div>
+    </div>
+    <div class="stat-row" id="stats"></div>
+    <div class="cards" id="charts"></div>
+    <div class="card section-gap" id="ba-card"></div>
+  </div>
+
+  <!-- MEDS -->
+  <div id="view-meds" class="view hidden">
+    <div class="trend-head"><h2>Meds</h2><button class="btn" onclick="showMedForm()">+ Add med</button></div>
+    <div class="card"><h3>Current</h3><div id="med-list"></div></div>
+    <div class="card section-gap hidden" id="med-form"></div>
+    <div class="trend-head section-gap" style="margin-top:22px"><h2 style="font-size:18px">Change log</h2><button class="btn" onclick="showChangeForm()">+ Log change</button></div>
+    <div class="card hidden" id="change-form"></div>
+    <div class="card" id="change-list"></div>
+    <div class="card section-gap">
+      <h3>Data</h3>
+      <div class="io-row">
+        <button class="btn" onclick="exportJSON()">Export JSON</button>
+        <button class="btn" onclick="document.getElementById('imp').click()">Import JSON</button>
+        <input type="file" id="imp" accept="application/json" style="display:none" onchange="importJSON(this)">
+      </div>
+      <p class="small-muted" style="margin:10px 0 0">Everything lives on this device only. Export before switching phones.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ---------------- config ---------------- */
+// Daily questions. `high` = which end is the good end (for before/after coloring).
+const QUESTIONS = [
+  { id:'mood',      label:'Mood',       hint:'1 really bad · 5 fine',                 max:5, lo:'really bad', hi:'fine',        high:'good' },
+  { id:'dep',       label:'Depression', hint:'1 none · 5 severe',                     max:5, lo:'none',       hi:'severe',      high:'bad'  },
+  { id:'focus',     label:'ADHD / focus', short:'Focus', hint:'1 scattered · 5 locked in', max:5, lo:'scattered',  hi:'locked in',   high:'good' },
+  { id:'overwhelm', label:'Overwhelm',  hint:'sensory / social load', max:5, lo:'calm', hi:'overloaded', high:'bad' },
+  { id:'sleep',     label:'Sleep',      hint:'last night · 1 awful · 5 great',        max:5, lo:'awful',      hi:'great',       high:'good' },
+  { id:'active',    label:'Active today?', short:'Active', hint:'moved your body', max:3, words:['None','Some','A lot'], high:'good' },
+];
+const SEED = {
+  meds: [
+    { id:'strattera',   name:'Strattera',   dose:'100 mg', when:'daily', active:true },
+    { id:'wellbutrin',  name:'Wellbutrin',  dose:'150 mg', when:'daily', active:true },
+    { id:'abilify',     name:'Abilify',     dose:'5 mg',   when:'daily', active:true },
+    { id:'lamotrigine', name:'Lamotrigine', dose:'200 mg', when:'daily', active:true },
+  ],
+  changes: [
+    { id:'c1', date:'2026-08-15', med:'Wellbutrin', type:'started',   dose:'150 mg', note:'' },
+    { id:'c2', date:'2026-08-15', med:'Strattera',  type:'increased', dose:'100 mg', note:'' },
+    { id:'c3', date:'2026-08-15', med:'Abilify',    type:'note',      dose:'5 mg',   note:'Already on it when tracking began.' },
+    { id:'c4', date:'2026-08-15', med:'Lamotrigine',type:'note',      dose:'200 mg', note:'Already on it when tracking began.' },
+  ],
+};
+
+/* ---------------- storage ---------------- */
+const KEY = 'dose.v1';
+let db = load();
+function load() {
+  try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && d.entries) return d; } catch(e) {}
+  return { entries:{}, meds: JSON.parse(JSON.stringify(SEED.meds)), changes: JSON.parse(JSON.stringify(SEED.changes)) };
+}
+function save() { localStorage.setItem(KEY, JSON.stringify(db)); flashSaved(); }
+let flashT; function flashSaved(){ const f=document.getElementById('saved-flag'); f.classList.add('on'); clearTimeout(flashT); flashT=setTimeout(()=>f.classList.remove('on'),1100); }
+
+/* ---------------- dates ---------------- */
+const pad = n => String(n).padStart(2,'0');
+function iso(d){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function todayISO(){ return iso(new Date()); }
+function fromISO(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function addDays(s,n){ const d=fromISO(s); d.setDate(d.getDate()+n); return iso(d); }
+function fmtLong(s){ return fromISO(s).toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric',year:'numeric'}); }
+function fmtShort(s){ return fromISO(s).toLocaleDateString(undefined,{month:'short',day:'numeric'}); }
+function uid(){ return Math.random().toString(36).slice(2,9); }
+
+/* ---------------- nav ---------------- */
+let cur = todayISO(), range = 30, view = 'today';
+function go(v){ view=v; ['today','trends','meds'].forEach(x=>{ document.getElementById('view-'+x).classList.toggle('hidden',x!==v); document.getElementById('nav-'+x).classList.toggle('on',x===v); });
+  if(v==='today') renderToday(); if(v==='trends') renderTrends(); if(v==='meds') renderMeds(); window.scrollTo(0,0); }
+function shiftDay(n){ const nx=addDays(cur,n); if(nx>todayISO()) return; cur=nx; renderToday(); }
+function setDay(v){ if(!v||v>todayISO()) return; cur=v; renderToday(); }
+
+/* ---------------- today (step flow) ---------------- */
+function entry(d){ return db.entries[d] || (db.entries[d] = { meds:{} }); }
+const MEDS_STEP = QUESTIONS.length, SUMMARY_STEP = QUESTIONS.length+1, TOTAL_STEPS = QUESTIONS.length+2;
+let step = null, stepDay = null;   // step is per-day; recomputed when the day changes
+function answered(e,q){ return typeof (e||{})[q.id]==='number'; }
+function firstOpenStep(e){ const i=QUESTIONS.findIndex(q=>!answered(e,q)); return i<0?SUMMARY_STEP:i; }
+function goStep(s){ step=Math.max(0,Math.min(TOTAL_STEPS-1,s)); renderToday(); }
+
+function renderToday(){
+  const t=todayISO();
+  if(stepDay!==cur){ stepDay=cur; step=firstOpenStep(db.entries[cur]); }
+  document.getElementById('day-title').textContent = cur===t?'Today':(cur===addDays(t,-1)?'Yesterday':fmtShort(cur));
+  document.getElementById('day-date').textContent = fmtLong(cur);
+  document.getElementById('day-pick').value = cur; document.getElementById('day-pick').max = t;
+  document.getElementById('next-btn').disabled = cur>=t;
+  renderWeekStrip();
+  const e = db.entries[cur] || { meds:{} };
+  // progress dots
+  document.getElementById('dots').innerHTML = Array.from({length:TOTAL_STEPS},(_,i)=>{
+    const done = i<MEDS_STEP ? answered(e,QUESTIONS[i]) : (i===MEDS_STEP ? Object.values(e.meds||{}).some(Boolean) : firstOpenStep(e)===SUMMARY_STEP);
+    return `<button class="${i===step?'cur':(done?'done':'')}" onclick="goStep(${i})" title="${i<MEDS_STEP?QUESTIONS[i].label:(i===MEDS_STEP?'Meds':'Summary')}"></button>`; }).join('');
+  const wrap = document.getElementById('q-cards'); wrap.innerHTML='';
+  if(step<MEDS_STEP) wrap.appendChild(questionPage(QUESTIONS[step],e));
+  else if(step===MEDS_STEP) wrap.appendChild(medsPage(e));
+  else wrap.appendChild(summaryPage(e));
+}
+function stepNav(prevLabel,nextLabel,nextDisabled){
+  return `<div class="step-nav"><button class="btn" ${step===0?'disabled style="opacity:.35"':''} onclick="goStep(${step-1})">‹ ${prevLabel}</button>
+    <span class="cnt">${step+1} / ${TOTAL_STEPS}</span>
+    <button class="btn ${step===SUMMARY_STEP-1?'primary':''}" ${nextDisabled?'disabled style="opacity:.35"':''} onclick="goStep(${step+1})">${nextLabel} ›</button></div>`;
+}
+function questionPage(q,e){
+  const c=document.createElement('div'); c.className='card big';
+  let btns='';
+  for(let i=1;i<=q.max;i++){ const lbl=q.words?q.words[i-1]:i; btns+=`<button class="${e[q.id]===i?'sel':''}" onclick="setVal('${q.id}',${i})">${lbl}</button>`; }
+  c.innerHTML=`<div class="step-q">${q.label}</div><div class="step-hint">${q.hint}</div>
+    <div class="scale ${q.words?'words':''}" style="grid-template-columns:repeat(${q.max},1fr)">${btns}</div>
+    ${q.words?'':`<div class="ends"><span>${q.lo}</span><span>${q.hi}</span></div>`}
+    ${stepNav('Back', answered(e,q)?'Next':'Skip', false)}`;
+  return c;
+}
+function medsPage(e){
+  const active = db.meds.filter(m=>m.active);
+  const c=document.createElement('div'); c.className='card';
+  const rows = active.map(m=>`<div class="medrow ${e.meds&&e.meds[m.id]?'done':''}" onclick="toggleMed('${m.id}')"><span class="box">${e.meds&&e.meds[m.id]?'✓':''}</span><span class="nm">${esc(m.name)}</span><span class="ds">${esc(m.dose)}</span></div>`).join('');
+  const allDone = active.length && active.every(m=>e.meds&&e.meds[m.id]);
+  c.innerHTML=`<div class="step-q">Meds taken</div><div class="step-hint">${active.filter(m=>e.meds&&e.meds[m.id]).length} of ${active.length} today</div>
+    <div class="medlist">${rows||'<div class="empty">No active meds — add them in the Meds tab.</div>'}</div>
+    ${active.length?`<div class="all-row"><button class="btn sm" onclick="allMeds(${allDone?'false':'true'})">${allDone?'Clear all':'Mark all taken'}</button></div>`:''}
+    ${stepNav('Back','Finish',false)}`;
+  return c;
+}
+function summaryPage(e){
+  const c=document.createElement('div'); c.className='card';
+  const complete = firstOpenStep(e)===SUMMARY_STEP;
+  const active=db.meds.filter(m=>m.active), taken=active.filter(m=>e.meds&&e.meds[m.id]);
+  const rows = QUESTIONS.map((q,i)=>{
+    const v=e[q.id];
+    const bar = typeof v==='number' ? `<span class="sum-bar">${Array.from({length:q.max},(_,k)=>`<i class="${k<v?'on':''}"></i>`).join('')}</span>` : '';
+    const word = typeof v==='number' ? (q.words?q.words[v-1]:(v===1?q.lo:v===q.max?q.hi:'')) : '';
+    return `<div class="sum-row" onclick="goStep(${i})"><span><span class="sum-k">${q.label}</span>${word?`<span class="sum-w">${word}</span>`:''}</span>
+      <span>${bar}<span class="sum-v ${typeof v==='number'?'':'none'}">${typeof v==='number'?(q.words?'':v):'tap to answer'}</span></span></div>`; }).join('');
+  c.innerHTML=`${complete?`<div class="done-banner">✓ ${cur===todayISO()?'Today':fmtShort(cur)} is logged</div>`:''}
+    <div class="step-q">Summary</div><div class="step-hint">Tap any line to change it</div>
+    ${rows}
+    <div class="sum-row" onclick="goStep(${MEDS_STEP})"><span class="sum-k">Meds</span><span class="sum-v ${taken.length===active.length&&active.length?'':'none'}" style="${taken.length===active.length&&active.length?'color:var(--good)':''}">${active.length?taken.length+' / '+active.length+' taken':'none set'}</span></div>
+    <div style="margin-top:14px"><div class="card-label"><span class="t">Anything else</span><span class="hint">side effects, appetite, headaches…</span></div>
+    <textarea id="note" placeholder="Optional">${esc(e.note||'')}</textarea></div>
+    <div class="step-nav"><button class="btn" onclick="goStep(${MEDS_STEP})">‹ Back</button><span class="cnt">${TOTAL_STEPS} / ${TOTAL_STEPS}</span>
+      ${cur<todayISO()?`<button class="btn" onclick="setDay('${addDays(cur,1)}')">Next day ›</button>`:`<button class="btn" onclick="go('trends')">Trends ›</button>`}</div>`;
+  const ta=c.querySelector('#note'); let nt;
+  ta.addEventListener('input',()=>{ clearTimeout(nt); nt=setTimeout(()=>{ entry(cur).note=ta.value; save(); },400); });
+  return c;
+}
+let advT;
+function setVal(id,v){ const e=entry(cur); const was=e[id]; e[id] = was===v?undefined:v; save(); renderToday();
+  clearTimeout(advT); if(e[id]!==undefined && step<MEDS_STEP) advT=setTimeout(()=>goStep(step+1),260); }
+function toggleMed(id){ const e=entry(cur); e.meds=e.meds||{}; e.meds[id]=!e.meds[id]; save(); renderToday(); }
+function allMeds(on){ const e=entry(cur); e.meds={}; if(on) db.meds.filter(m=>m.active).forEach(m=>e.meds[m.id]=true); save(); renderToday(); }
+
+/* week strip: last 7 days vs the 7 before */
+function renderWeekStrip(){
+  const el=document.getElementById('week-strip');
+  const thisWk=daysBack(7).map(d=>db.entries[d]||{}), lastWk=[]; for(let i=13;i>=7;i--) lastWk.push(db.entries[addDays(todayISO(),-i)]||{});
+  const logged=thisWk.filter(e=>QUESTIONS.some(q=>answered(e,q))).length;
+  let tiles=QUESTIONS.map(q=>{
+    const a=avg(thisWk.map(e=>e[q.id])), b=avg(lastWk.map(e=>e[q.id]));
+    let d='',cls='flat';
+    if(a!==null&&b!==null){ const diff=a-b; if(Math.abs(diff)>=0.05){ const good=q.high==='good'?diff>0:diff<0; cls=good?'up':'down'; d=(diff>0?'▲':'▼')+' '+Math.abs(diff).toFixed(1); } else d='— same'; }
+    return `<div class="wk"><div class="v">${a!==null?a.toFixed(1):'–'}<small>/${q.max}</small></div><div class="k">${q.short||q.label}</div>${d?`<div class="d ${cls}">${d}</div>`:''}</div>`; }).join('');
+  el.innerHTML=`<div class="week-title"><span>This week <b>· ${logged}/7 days</b></span><span>vs last week</span></div><div class="week-strip" style="margin-bottom:0">${tiles}</div>`;
+  el.className=''; el.style.marginBottom='16px';
+}
+function esc(s){ return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ---------------- trends ---------------- */
+function setRange(r){ range=r; document.querySelectorAll('#range-seg button').forEach(b=>b.classList.toggle('on',+b.dataset.r===r)); renderTrends(); }
+function daysBack(n){ const t=todayISO(); const out=[]; for(let i=n-1;i>=0;i--) out.push(addDays(t,-i)); return out; }
+function avg(a){ const v=a.filter(x=>typeof x==='number'); return v.length?v.reduce((s,x)=>s+x,0)/v.length:null; }
+function streak(){ let n=0, d=todayISO(); const has=x=>{const e=db.entries[x]; return e && QUESTIONS.some(q=>typeof e[q.id]==='number');};
+  if(!has(d)) d=addDays(d,-1); while(has(d)){ n++; d=addDays(d,-1);} return n; }
+
+function renderTrends(){
+  const days=daysBack(range);
+  const es=days.map(d=>db.entries[d]||{});
+  const logged=es.filter(e=>QUESTIONS.some(q=>typeof e[q.id]==='number')).length;
+  const activeMeds=db.meds.filter(m=>m.active);
+  const medDays=es.filter(e=>activeMeds.length && activeMeds.every(m=>e.meds&&e.meds[m.id])).length;
+  const activeDays=es.filter(e=>e.active>=2).length;
+  const mood=avg(es.map(e=>e.mood)), sleep=avg(es.map(e=>e.sleep));
+  document.getElementById('stats').innerHTML = [
+    [logged+'/'+range,'days logged'], [streak(),'day streak'],
+    [mood!==null?mood.toFixed(1)+' / 5':'—','avg mood'], [sleep!==null?sleep.toFixed(1)+' / 5':'—','avg sleep'],
+    [activeDays,'active days'], [logged?Math.round(medDays/logged*100)+'%':'—','all meds taken'],
+  ].map(([v,k])=>`<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`).join('');
+
+  const changes=db.changes.filter(c=>c.type!=='note' && c.date>=days[0] && c.date<=days[days.length-1]);
+  const wrap=document.getElementById('charts'); wrap.innerHTML='';
+  if(!logged){ wrap.innerHTML='<div class="card"><div class="empty">Nothing logged in this range yet. Answer today\'s questions and come back.</div></div>'; }
+  else QUESTIONS.forEach(q=>{
+    const vals=es.map(e=>e[q.id]);
+    const c=document.createElement('div'); c.className='card chart-card';
+    const a=avg(vals);
+    c.innerHTML=`<div class="card-label"><span class="t">${q.label}</span><span class="hint">${a!==null?'avg '+a.toFixed(1)+' / '+q.max:'no data'}</span></div>
+      ${chartSVG(days,vals,q,changes)}
+      <div class="legend"><span><i></i>${q.words?'none · some · a lot':q.lo+' → '+q.hi}</span>${changes.length?'<span><i class="chg"></i>med change</span>':''}</div>`;
+    wrap.appendChild(c);
+  });
+  renderBeforeAfter();
+}
+function chartSVG(days,vals,q,changes){
+  const host=document.getElementById('charts');
+  const W=Math.max(280,(host.clientWidth||600)-34), pl=22,pr=6,pt=8; const n=days.length;
+  // group change markers by date so same-day changes stack instead of overlapping
+  const byDate={}; changes.forEach(c=>{ if(days.indexOf(c.date)>=0) (byDate[c.date]=byDate[c.date]||[]).push(c); });
+  const maxStack=Math.max(0,...Object.values(byDate).map(a=>a.length));
+  const H=110+maxStack*11, pb=18;
+  const x=i=>pl+(n===1?0:(W-pl-pr)*i/(n-1)); const y=v=>pt+maxStack*11+(H-pt-maxStack*11-pb)*(1-(v-1)/(q.max-1));
+  let s='';
+  // gridlines
+  for(let v=1;v<=q.max;v++) s+=`<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="rgba(255,255,255,.06)"/><text x="${pl-7}" y="${y(v)+4}" fill="#8b97a7" font-size="10" text-anchor="end" font-weight="600">${v}</text>`;
+  // change markers
+  Object.entries(byDate).forEach(([d,list])=>{ const i=days.indexOf(d); const xi=x(i); const right=xi>W*0.6;
+    s+=`<line x1="${xi}" x2="${xi}" y1="${pt}" y2="${H-pb}" stroke="#f5b942" stroke-dasharray="3 3" stroke-width="1.2"/>`;
+    list.forEach((c,k)=>{ const lbl=`${esc(c.med)} ${c.type==='started'?'start':c.type==='stopped'?'stop':(c.type==='increased'?'↑':'↓')+' '+esc(c.dose)}`;
+      s+=`<text x="${xi+(right?-4:4)}" y="${pt+4+k*11}" fill="#f5b942" font-size="9.5" font-weight="700" text-anchor="${right?'end':'start'}">${lbl}</text>`; }); });
+  // line (skip gaps)
+  let path='', pen=false;
+  vals.forEach((v,i)=>{ if(typeof v==='number'){ path+=(pen?'L':'M')+x(i).toFixed(1)+' '+y(v).toFixed(1)+' '; pen=true; } else pen=false; });
+  s+=`<path d="${path}" fill="none" stroke="#7aa2ff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>`;
+  vals.forEach((v,i)=>{ if(typeof v==='number') s+=`<circle cx="${x(i)}" cy="${y(v)}" r="2.6" fill="#7aa2ff"><title>${fmtShort(days[i])}: ${q.words?q.words[v-1]:v}</title></circle>`; });
+  // x labels
+  const step=n>40?14:(n>20?7:(n>10?3:1));
+  for(let i=0;i<n;i+=step) s+=`<text x="${x(i)}" y="${H-4}" fill="#8b97a7" font-size="9.5" text-anchor="${i===0?'start':'middle'}" font-weight="600">${fmtShort(days[i])}</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" style="height:${H}px">${s}</svg>`;
+}
+let rzT; window.addEventListener('resize',()=>{ if(view!=='trends') return; clearTimeout(rzT); rzT=setTimeout(renderTrends,150); });
+function renderBeforeAfter(){
+  const el=document.getElementById('ba-card');
+  const chs=db.changes.filter(c=>c.type!=='note');
+  if(!chs.length){ el.innerHTML='<h3>Before / after</h3><div class="empty">Log a med change and this fills in.</div>'; return; }
+  const byDate={}; chs.forEach(c=>(byDate[c.date]=byDate[c.date]||[]).push(c));
+  const dates=Object.keys(byDate).sort().reverse();
+  const WIN=14;
+  let html='<h3>Before / after each change</h3><p class="small-muted" style="margin:-4px 0 12px">Averages over up to 14 logged days on each side. Green = moved toward the good end.</p>';
+  dates.forEach(date=>{
+    const before=[],after=[];
+    for(let i=1;i<=WIN;i++){ const b=db.entries[addDays(date,-i)]; if(b) before.push(b); const ad=addDays(date,i-1); const a=db.entries[ad]; if(a && ad<=todayISO()) after.push(a); }
+    const head=byDate[date].map(c=>`<span class="pill ${c.type}">${c.type}</span>${esc(c.med)} ${esc(c.dose||'')}`).join('<span class="small-muted" style="margin:0 8px">+</span>');
+    html+=`<div style="margin-top:14px"><div style="font-weight:800;font-size:14.5px;margin-bottom:6px;line-height:1.7">${head} <span class="small-muted">· ${fmtShort(date)}</span></div>`;
+    if(!before.length && !after.length){ html+='<div class="empty">No entries around this date yet.</div></div>'; return; }
+    html+=`<div style="overflow-x:auto"><table><tr><th></th><th>Before (${before.length}d)</th><th>After (${after.length}d)</th><th>Δ</th></tr>`;
+    QUESTIONS.forEach(q=>{
+      const b=avg(before.map(e=>e[q.id])), a=avg(after.map(e=>e[q.id]));
+      let d='—',cls='flat';
+      if(b!==null&&a!==null){ const diff=a-b; const good=q.high==='good'?diff>0:diff<0; cls=Math.abs(diff)<0.05?'flat':(good?'up':'down'); d=(diff>0?'+':'')+diff.toFixed(1); }
+      html+=`<tr><td style="white-space:nowrap">${q.short||q.label}</td><td class="num">${b!==null?b.toFixed(1):'—'}</td><td class="num">${a!==null?a.toFixed(1):'—'}</td><td class="num ${cls}">${d}</td></tr>`;
+    });
+    html+='</table></div></div>';
+  });
+  el.innerHTML=html;
+}
+
+/* ---------------- meds ---------------- */
+function renderMeds(){
+  const list=document.getElementById('med-list');
+  const ms=[...db.meds].sort((a,b)=>(a.active===b.active?0:a.active?-1:1));
+  list.innerHTML = ms.length? ms.map(m=>`<div class="mrow" style="${m.active?'':'opacity:.5'}"><div><div class="nm">${esc(m.name)}</div><div class="sub">${esc(m.dose)} · ${esc(m.when||'daily')}${m.active?'':' · stopped'}</div></div>
+    <div class="acts"><button class="btn sm" onclick="showMedForm('${m.id}')">Edit</button><button class="btn sm ${m.active?'danger':''}" onclick="toggleActive('${m.id}')">${m.active?'Stop':'Resume'}</button></div></div>`).join('')
+    : '<div class="empty">No meds yet.</div>';
+  const cl=document.getElementById('change-list');
+  const chs=[...db.changes].sort((a,b)=>a.date<b.date?1:(a.date>b.date?-1:0));
+  cl.innerHTML = chs.length? chs.map(c=>`<div class="crow"><div class="dt">${fmtShort(c.date)}</div><div class="body"><div class="ev"><span class="pill ${c.type}">${c.type}</span>${esc(c.med)}${c.dose?' · '+esc(c.dose):''}</div>${c.note?`<div class="nt">${esc(c.note)}</div>`:''}</div>
+    <div class="acts"><button class="btn sm" onclick="showChangeForm('${c.id}')">Edit</button><button class="btn sm danger" onclick="delChange('${c.id}')">✕</button></div></div>`).join('')
+    : '<div class="empty">No changes logged.</div>';
+}
+function toggleActive(id){ const m=db.meds.find(x=>x.id===id); if(!m) return; m.active=!m.active;
+  db.changes.push({id:uid(),date:todayISO(),med:m.name,type:m.active?'started':'stopped',dose:m.dose,note:''}); save(); renderMeds(); }
+function showMedForm(id){
+  const m=id?db.meds.find(x=>x.id===id):null; const f=document.getElementById('med-form'); f.classList.remove('hidden');
+  f.innerHTML=`<h3>${m?'Edit med':'Add med'}</h3><div class="form-grid">
+    <div><input type="text" id="mf-name" placeholder="Name" value="${esc(m?m.name:'')}"></div>
+    <div><input type="text" id="mf-dose" placeholder="Dose (e.g. 50 mg)" value="${esc(m?m.dose:'')}"></div>
+    <div class="full"><input type="text" id="mf-when" placeholder="When (daily, morning, twice a day…)" value="${esc(m?m.when||'daily':'daily')}"></div>
+    ${m?'':'<div class="full"><label class="small-muted"><input type="checkbox" id="mf-log" checked style="width:auto;margin-right:6px"> Also log "started" in the change log today</label></div>'}
+    </div><div class="form-actions"><button class="btn" onclick="hideMedForm()">Cancel</button><button class="btn primary" onclick="saveMed('${m?m.id:''}')">Save</button></div>`;
+  f.scrollIntoView({behavior:'smooth',block:'center'}); document.getElementById('mf-name').focus();
+}
+function hideMedForm(){ document.getElementById('med-form').classList.add('hidden'); }
+function saveMed(id){
+  const name=document.getElementById('mf-name').value.trim(), dose=document.getElementById('mf-dose').value.trim(), when=document.getElementById('mf-when').value.trim()||'daily';
+  if(!name) return;
+  if(id){ const m=db.meds.find(x=>x.id===id); const oldDose=m.dose; Object.assign(m,{name,dose,when});
+    if(oldDose!==dose && dose) db.changes.push({id:uid(),date:todayISO(),med:name,type:'increased',dose,note:'Dose edited from '+oldDose+' — fix the type/date if this was earlier.'}); }
+  else { const nid=name.toLowerCase().replace(/[^a-z0-9]+/g,'-')+'-'+uid().slice(0,3); db.meds.push({id:nid,name,dose,when,active:true});
+    if(document.getElementById('mf-log').checked) db.changes.push({id:uid(),date:todayISO(),med:name,type:'started',dose,note:''}); }
+  save(); hideMedForm(); renderMeds();
+}
+function showChangeForm(id){
+  const c=id?db.changes.find(x=>x.id===id):null; const f=document.getElementById('change-form'); f.classList.remove('hidden');
+  const medOpts=db.meds.map(m=>`<option ${c&&c.med===m.name?'selected':''}>${esc(m.name)}</option>`).join('');
+  const types=['started','increased','decreased','stopped','note'];
+  f.innerHTML=`<h3>${c?'Edit change':'Log a change'}</h3><div class="form-grid">
+    <div><input type="date" id="cf-date" style="width:100%" value="${c?c.date:todayISO()}" max="${todayISO()}"></div>
+    <div><select id="cf-type">${types.map(t=>`<option ${c&&c.type===t?'selected':''}>${t}</option>`).join('')}</select></div>
+    <div><select id="cf-med">${medOpts}<option value="__other" ${c&&!db.meds.some(m=>m.name===c.med)?'selected':''}>Other…</option></select></div>
+    <div><input type="text" id="cf-dose" placeholder="New dose (e.g. 100 mg)" value="${esc(c?c.dose:'')}"></div>
+    <div class="full"><input type="text" id="cf-other" placeholder="Med name (if Other)" value="${esc(c&&!db.meds.some(m=>m.name===c.med)?c.med:'')}"></div>
+    <div class="full"><input type="text" id="cf-note" placeholder="Note (optional)" value="${esc(c?c.note:'')}"></div>
+    </div><div class="form-actions"><button class="btn" onclick="hideChangeForm()">Cancel</button><button class="btn primary" onclick="saveChange('${c?c.id:''}')">Save</button></div>`;
+  f.scrollIntoView({behavior:'smooth',block:'center'});
+}
+function hideChangeForm(){ document.getElementById('change-form').classList.add('hidden'); }
+function saveChange(id){
+  const date=document.getElementById('cf-date').value, type=document.getElementById('cf-type').value;
+  let med=document.getElementById('cf-med').value; if(med==='__other') med=document.getElementById('cf-other').value.trim();
+  const dose=document.getElementById('cf-dose').value.trim(), note=document.getElementById('cf-note').value.trim();
+  if(!date||!med) return;
+  if(id){ Object.assign(db.changes.find(x=>x.id===id),{date,type,med,dose,note}); } else db.changes.push({id:uid(),date,type,med,dose,note});
+  // keep the med card's dose in sync for dose changes
+  const m=db.meds.find(x=>x.name===med); if(m && dose && (type==='increased'||type==='decreased'||type==='started')) m.dose=dose;
+  save(); hideChangeForm(); renderMeds();
+}
+function delChange(id){ if(!confirm('Delete this change-log entry?')) return; db.changes=db.changes.filter(c=>c.id!==id); save(); renderMeds(); }
+
+/* ---------------- import / export ---------------- */
+function exportJSON(){ const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='dose-'+todayISO()+'.json'; a.click(); }
+function importJSON(inp){ const f=inp.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ const d=JSON.parse(r.result); if(!d.entries||!d.meds) throw 0;
+  if(!confirm('Replace everything on this device with the imported file?')) return; db=d; save(); go(view); }catch(e){ alert('That file doesn\'t look like a Dose export.'); } inp.value=''; }; r.readAsText(f); }
+
+/* ---------------- boot ---------------- */
+save(); renderToday();
+</script>
+</body>
+</html>
