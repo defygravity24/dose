@@ -129,6 +129,27 @@ body {
 .face-line b.muted { color: var(--muted); font-weight: 600; }
 .face-line:hover b { color: var(--accent); }
 
+/* day history — one compact card per past day */
+.hist-title { display: flex; justify-content: space-between; align-items: baseline; color: var(--muted); font-size: 12.5px; font-weight: 700; margin: 22px 0 8px; text-transform: uppercase; letter-spacing: .4px; }
+.hist { display: flex; flex-direction: column; gap: 8px; }
+.hrow { display: flex; align-items: center; gap: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 11px 14px; cursor: pointer; }
+.hrow:hover { border-color: rgba(122,162,255,.4); }
+.hrow.cur { border-color: var(--accent); }
+.hrow .hd { width: 84px; flex: none; }
+.hrow .hd b { display: block; font-size: 14px; font-weight: 800; }
+.hrow .hd span { color: var(--muted); font-size: 12px; font-weight: 600; }
+.hrow .hs { flex: none; text-align: right; width: 58px; }
+.hrow .hs b { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.hrow .hs b small { font-size: 10.5px; color: var(--muted); font-weight: 700; }
+.hrow .hs span { display: block; color: var(--muted); font-size: 10.5px; font-weight: 700; }
+.hrow .hm { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; min-width: 0; }
+.hrow .hm div { text-align: center; }
+.hrow .hm .k { color: var(--muted); font-size: 9.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hrow .hm .v { font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.hrow .hm .v.none { color: rgba(139,151,167,.5); }
+.hrow .hm .v.partial { color: var(--warn); }
+@media (max-width: 420px) { .hrow .hm { grid-template-columns: repeat(3, 1fr); } .hrow .hd { width: 70px; } }
+
 /* cards */
 .cards { display: flex; flex-direction: column; gap: 12px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 15px 17px; }
@@ -253,6 +274,7 @@ td.num { font-variant-numeric: tabular-nums; }
     <div class="week-strip" id="week-strip"></div>
     <div class="dots" id="dots"></div>
     <div class="cards" id="q-cards"></div>
+    <div id="history"></div>
   </div>
 
   <!-- TRENDS -->
@@ -373,6 +395,27 @@ function renderToday(){
   else if(step<MEDS_STEP) wrap.appendChild(questionPage(QUESTIONS[step],e));
   else if(step===MEDS_STEP) wrap.appendChild(medsPage(e));
   else wrap.appendChild(notePage(e));
+  renderHistory();
+}
+
+/* day score: mean of the 1–5 questions, oriented so higher = better (Depression/Overwhelm inverted) */
+function dayScore(e){
+  const vals=QUESTIONS.filter(q=>!q.words).map(q=>{ const v=e[q.id]; if(typeof v!=='number') return null; return q.high==='good'?v:(q.max+1-v); }).filter(v=>v!==null);
+  return vals.length? {score: vals.reduce((a,b)=>a+b,0)/vals.length, n: vals.length, of: QUESTIONS.filter(q=>!q.words).length} : null;
+}
+function renderHistory(){
+  const el=document.getElementById('history');
+  if(step!==null){ el.innerHTML=''; return; }
+  const days=Object.keys(db.entries).filter(d=>d!==cur && d<=todayISO() && QUESTIONS.some(q=>answered(db.entries[d],q))).sort().reverse().slice(0,30);
+  if(!days.length){ el.innerHTML=''; return; }
+  const t=todayISO();
+  el.innerHTML=`<div class="hist-title"><span>Previous days</span><span>${days.length} logged</span></div><div class="hist">`+days.map(d=>{
+    const e=db.entries[d]; const ds=dayScore(e); const complete=isComplete(e);
+    const dt=fromISO(d); const wd=dt.toLocaleDateString(undefined,{weekday:'short'}); const md=dt.toLocaleDateString(undefined,{month:'short',day:'numeric'});
+    const label = d===addDays(t,-1)?'Yesterday':wd;
+    const mini=QUESTIONS.map(q=>{ const v=e[q.id]; const has=typeof v==='number'; return `<div><div class="k">${q.short||q.label}</div><div class="v ${has?'':'none'}">${has?(q.words?['○','◐','●'][v-1]:v):'·'}</div></div>`; }).join('');
+    return `<div class="hrow ${d===cur?'cur':''}" onclick="setDay('${d}')"><div class="hd"><b>${label}</b><span>${md}</span></div><div class="hm">${mini}</div><div class="hs"><b>${ds?ds.score.toFixed(1):'–'}<small>/5</small></b><span>${complete?'day score':(ds?ds.n+' of '+ds.of:'')}</span></div></div>`;
+  }).join('')+'</div>';
 }
 function stepNav(prevLabel,nextLabel){
   const last = step===TOTAL_STEPS-1;
