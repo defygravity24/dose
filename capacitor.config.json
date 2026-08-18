@@ -1,0 +1,10 @@
+{
+  "appId": "com.maxcooper.dose",
+  "appName": "Dose",
+  "webDir": "www",
+  "backgroundColor": "#0e1117",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#0e1117"
+  }
+}
