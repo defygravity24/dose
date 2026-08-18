@@ -6,6 +6,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0e1117">
+<meta name="apple-mobile-web-app-title" content="Dose">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <title>Dose</title>
 <style>
 :root {
@@ -95,19 +99,33 @@ body {
 .big .scale.words button { font-size: 16px; }
 .big .ends { font-size: 13px; margin-top: 10px; }
 
-/* summary */
-.sum-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--line); cursor: pointer; }
-.sum-row:last-child { border-bottom: 0; }
-.sum-row:hover .sum-v { color: var(--accent); }
-.sum-row .sum-k { font-weight: 700; font-size: 15px; }
-.sum-row .sum-w { color: var(--muted); font-size: 12.5px; font-weight: 600; margin-left: 8px; }
-.sum-row .sum-v { font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; }
-.sum-row .sum-v.none { color: var(--muted); font-weight: 600; font-size: 13.5px; }
-.sum-bar { display: inline-flex; gap: 3px; margin-right: 10px; vertical-align: middle; }
-.sum-bar i { width: 9px; height: 9px; border-radius: 3px; background: rgba(255,255,255,.1); display: inline-block; }
-.sum-bar i.on { background: var(--accent); }
-.done-banner { display: flex; align-items: center; gap: 10px; background: rgba(79,214,165,.1); border: 1px solid rgba(79,214,165,.3); color: var(--good);
-  border-radius: 12px; padding: 11px 14px; font-weight: 700; font-size: 14px; margin-bottom: 12px; }
+/* face card — compact front of the day */
+.card.face { padding: 0; overflow: hidden; }
+.face-empty { display: flex; align-items: center; justify-content: space-between; padding: 22px 18px; cursor: pointer; }
+.face-empty:hover { background: rgba(255,255,255,.02); }
+.face-title { font-size: 20px; font-weight: 800; }
+.face-sub { color: var(--muted); font-size: 13px; font-weight: 600; margin-top: 3px; }
+.face-go { width: 34px; height: 34px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); display: inline-flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800; flex: none; }
+.face-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 12px 18px; cursor: pointer; border-bottom: 1px solid var(--line); font-weight: 700; font-size: 14px; }
+.face-head:hover { background: rgba(255,255,255,.02); }
+.face-ok { color: var(--good); } .face-partial { color: var(--warn); }
+.face-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
+.ft { padding: 12px 10px 11px; text-align: center; cursor: pointer; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.ft:nth-child(3n) { border-right: 0; }
+.ft:hover { background: rgba(122,162,255,.06); }
+.ft-k { color: var(--muted); font-size: 11.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ft-v { font-size: 22px; font-weight: 800; margin: 2px 0 5px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.ft-v.none { color: var(--muted); }
+.ft-bar { display: inline-flex; gap: 3px; }
+.ft-bar i { width: 8px; height: 5px; border-radius: 2px; background: rgba(255,255,255,.1); display: inline-block; }
+.ft-bar i.on { background: var(--accent); }
+.face-foot { padding: 4px 18px 6px; }
+.face-line { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 14px; }
+.face-line:last-child { border-bottom: 0; }
+.face-line span { color: var(--muted); font-weight: 700; flex: none; }
+.face-line b { font-weight: 700; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.face-line b.muted { color: var(--muted); font-weight: 600; }
+.face-line:hover b { color: var(--accent); }
 
 /* cards */
 .cards { display: flex; flex-direction: column; gap: 12px; }
@@ -318,41 +336,78 @@ function uid(){ return Math.random().toString(36).slice(2,9); }
 
 /* ---------------- nav ---------------- */
 let cur = todayISO(), range = 30, view = 'today';
-function go(v){ view=v; ['today','trends','meds'].forEach(x=>{ document.getElementById('view-'+x).classList.toggle('hidden',x!==v); document.getElementById('nav-'+x).classList.toggle('on',x===v); });
+function go(v){ if(typeof flushNote==='function') flushNote(); view=v; ['today','trends','meds'].forEach(x=>{ document.getElementById('view-'+x).classList.toggle('hidden',x!==v); document.getElementById('nav-'+x).classList.toggle('on',x===v); });
   if(v==='today') renderToday(); if(v==='trends') renderTrends(); if(v==='meds') renderMeds(); window.scrollTo(0,0); }
-function shiftDay(n){ const nx=addDays(cur,n); if(nx>todayISO()) return; cur=nx; renderToday(); }
-function setDay(v){ if(!v||v>todayISO()) return; cur=v; renderToday(); }
+function shiftDay(n){ const nx=addDays(cur,n); if(nx>todayISO()) return; flushNote(); cur=nx; renderToday(); }
+function setDay(v){ if(!v||v>todayISO()) return; flushNote(); cur=v; renderToday(); }
 
 /* ---------------- today (step flow) ---------------- */
 function entry(d){ return db.entries[d] || (db.entries[d] = { meds:{} }); }
-const MEDS_STEP = QUESTIONS.length, SUMMARY_STEP = QUESTIONS.length+1, TOTAL_STEPS = QUESTIONS.length+2;
-let step = null, stepDay = null;   // step is per-day; recomputed when the day changes
+const MEDS_STEP = QUESTIONS.length, NOTE_STEP = QUESTIONS.length+1, TOTAL_STEPS = QUESTIONS.length+2;
+let step = null, stepDay = null;   // step === null → face card (idle); otherwise the open slide
 function answered(e,q){ return typeof (e||{})[q.id]==='number'; }
-function firstOpenStep(e){ const i=QUESTIONS.findIndex(q=>!answered(e,q)); return i<0?SUMMARY_STEP:i; }
-function goStep(s){ step=Math.max(0,Math.min(TOTAL_STEPS-1,s)); renderToday(); }
+function isComplete(e){ return QUESTIONS.every(q=>answered(e,q)); }
+function firstOpenStep(e){ const i=QUESTIONS.findIndex(q=>!answered(e,q)); return i<0?0:i; }
+function flushNote(){ const ta=document.getElementById('note'); if(ta && (entry(cur).note||'')!==ta.value){ entry(cur).note=ta.value; save(); } }
+function goStep(s){ flushNote(); if(s===null||s>=TOTAL_STEPS){ step=null; } else step=Math.max(0,s); renderToday(); window.scrollTo(0,0); }
+function openFlow(){ goStep(firstOpenStep(db.entries[cur])); }
 
 function renderToday(){
   const t=todayISO();
-  if(stepDay!==cur){ stepDay=cur; step=firstOpenStep(db.entries[cur]); }
+  if(stepDay!==cur){ stepDay=cur; step=null; }
   document.getElementById('day-title').textContent = cur===t?'Today':(cur===addDays(t,-1)?'Yesterday':fmtShort(cur));
   document.getElementById('day-date').textContent = fmtLong(cur);
   document.getElementById('day-pick').value = cur; document.getElementById('day-pick').max = t;
   document.getElementById('next-btn').disabled = cur>=t;
   renderWeekStrip();
   const e = db.entries[cur] || { meds:{} };
-  // progress dots
-  document.getElementById('dots').innerHTML = Array.from({length:TOTAL_STEPS},(_,i)=>{
-    const done = i<MEDS_STEP ? answered(e,QUESTIONS[i]) : (i===MEDS_STEP ? Object.values(e.meds||{}).some(Boolean) : firstOpenStep(e)===SUMMARY_STEP);
-    return `<button class="${i===step?'cur':(done?'done':'')}" onclick="goStep(${i})" title="${i<MEDS_STEP?QUESTIONS[i].label:(i===MEDS_STEP?'Meds':'Summary')}"></button>`; }).join('');
+  const dots=document.getElementById('dots');
+  dots.classList.toggle('hidden', step===null);
+  dots.innerHTML = Array.from({length:TOTAL_STEPS},(_,i)=>{
+    const done = i<MEDS_STEP ? answered(e,QUESTIONS[i]) : (i===MEDS_STEP ? Object.values(e.meds||{}).some(Boolean) : !!(e.note&&e.note.trim()));
+    return `<button class="${i===step?'cur':(done?'done':'')}" onclick="goStep(${i})" title="${i<MEDS_STEP?QUESTIONS[i].label:(i===MEDS_STEP?'Meds':'Anything else')}"></button>`; }).join('');
   const wrap = document.getElementById('q-cards'); wrap.innerHTML='';
-  if(step<MEDS_STEP) wrap.appendChild(questionPage(QUESTIONS[step],e));
+  if(step===null) wrap.appendChild(faceCard(e));
+  else if(step<MEDS_STEP) wrap.appendChild(questionPage(QUESTIONS[step],e));
   else if(step===MEDS_STEP) wrap.appendChild(medsPage(e));
-  else wrap.appendChild(summaryPage(e));
+  else wrap.appendChild(notePage(e));
 }
-function stepNav(prevLabel,nextLabel,nextDisabled){
-  return `<div class="step-nav"><button class="btn" ${step===0?'disabled style="opacity:.35"':''} onclick="goStep(${step-1})">‹ ${prevLabel}</button>
+function stepNav(prevLabel,nextLabel){
+  const last = step===TOTAL_STEPS-1;
+  return `<div class="step-nav"><button class="btn" onclick="goStep(${step===0?'null':step-1})">‹ ${step===0?'Card':prevLabel}</button>
     <span class="cnt">${step+1} / ${TOTAL_STEPS}</span>
-    <button class="btn ${step===SUMMARY_STEP-1?'primary':''}" ${nextDisabled?'disabled style="opacity:.35"':''} onclick="goStep(${step+1})">${nextLabel} ›</button></div>`;
+    <button class="btn ${last?'primary':''}" onclick="goStep(${last?'null':step+1})">${last?'Done':nextLabel} ›</button></div>`;
+}
+
+/* face card — the compact front of the day; tap to open the flow, tap a line to edit that one */
+function faceCard(e){
+  const c=document.createElement('div'); c.className='card face';
+  const complete=isComplete(e), any=QUESTIONS.some(q=>answered(e,q));
+  const active=db.meds.filter(m=>m.active), taken=active.filter(m=>e.meds&&e.meds[m.id]);
+  if(!any){
+    c.innerHTML=`<div class="face-empty" onclick="openFlow()"><div><div class="face-title">${cur===todayISO()?'Check in':'Log '+fmtShort(cur)}</div><div class="face-sub">${TOTAL_STEPS} quick taps · about 30 seconds</div></div><span class="face-go">›</span></div>`;
+    return c;
+  }
+  const tiles=QUESTIONS.map((q,i)=>{ const v=e[q.id]; const has=typeof v==='number';
+    return `<div class="ft" onclick="event.stopPropagation(); goStep(${i})"><div class="ft-k">${q.short||q.label}</div>
+      <div class="ft-v ${has?'':'none'}">${has?(q.words?q.words[v-1]:v):'–'}</div>
+      <div class="ft-bar">${Array.from({length:q.max},(_,k)=>`<i class="${has&&k<v?'on':''}"></i>`).join('')}</div></div>`; }).join('');
+  c.innerHTML=`<div class="face-head" onclick="openFlow()"><span class="${complete?'face-ok':'face-partial'}">${complete?'✓ Logged':'In progress — tap to continue'}</span><span class="face-go">›</span></div>
+    <div class="face-grid">${tiles}</div>
+    <div class="face-foot">
+      <div class="face-line" onclick="goStep(${MEDS_STEP})"><span>Meds</span><b style="${active.length&&taken.length===active.length?'color:var(--good)':''}">${active.length?taken.length+' / '+active.length+' taken':'none set'}</b></div>
+      <div class="face-line" onclick="goStep(${NOTE_STEP})"><span>Anything else</span><b class="${e.note&&e.note.trim()?'':'muted'}">${e.note&&e.note.trim()?esc(e.note.trim()):'add a note'}</b></div>
+    </div>`;
+  return c;
+}
+function notePage(e){
+  const c=document.createElement('div'); c.className='card';
+  c.innerHTML=`<div class="step-q">Anything else?</div><div class="step-hint">Side effects, appetite, headaches, what happened today — optional</div>
+    <textarea id="note" placeholder="Nothing to add" style="min-height:120px">${esc(e.note||'')}</textarea>
+    ${stepNav('Back','Done')}`;
+  const ta=c.querySelector('#note'); let nt;
+  ta.addEventListener('input',()=>{ clearTimeout(nt); nt=setTimeout(()=>{ entry(cur).note=ta.value; save(); },400); });
+  return c;
 }
 function questionPage(q,e){
   const c=document.createElement('div'); c.className='card big';
@@ -361,7 +416,7 @@ function questionPage(q,e){
   c.innerHTML=`<div class="step-q">${q.label}</div><div class="step-hint">${q.hint}</div>
     <div class="scale ${q.words?'words':''}" style="grid-template-columns:repeat(${q.max},1fr)">${btns}</div>
     ${q.words?'':`<div class="ends"><span>${q.lo}</span><span>${q.hi}</span></div>`}
-    ${stepNav('Back', answered(e,q)?'Next':'Skip', false)}`;
+    ${stepNav('Back', answered(e,q)?'Next':'Skip')}`;
   return c;
 }
 function medsPage(e){
@@ -372,29 +427,7 @@ function medsPage(e){
   c.innerHTML=`<div class="step-q">Meds taken</div><div class="step-hint">${active.filter(m=>e.meds&&e.meds[m.id]).length} of ${active.length} today</div>
     <div class="medlist">${rows||'<div class="empty">No active meds — add them in the Meds tab.</div>'}</div>
     ${active.length?`<div class="all-row"><button class="btn sm" onclick="allMeds(${allDone?'false':'true'})">${allDone?'Clear all':'Mark all taken'}</button></div>`:''}
-    ${stepNav('Back','Finish',false)}`;
-  return c;
-}
-function summaryPage(e){
-  const c=document.createElement('div'); c.className='card';
-  const complete = firstOpenStep(e)===SUMMARY_STEP;
-  const active=db.meds.filter(m=>m.active), taken=active.filter(m=>e.meds&&e.meds[m.id]);
-  const rows = QUESTIONS.map((q,i)=>{
-    const v=e[q.id];
-    const bar = typeof v==='number' ? `<span class="sum-bar">${Array.from({length:q.max},(_,k)=>`<i class="${k<v?'on':''}"></i>`).join('')}</span>` : '';
-    const word = typeof v==='number' ? (q.words?q.words[v-1]:(v===1?q.lo:v===q.max?q.hi:'')) : '';
-    return `<div class="sum-row" onclick="goStep(${i})"><span><span class="sum-k">${q.label}</span>${word?`<span class="sum-w">${word}</span>`:''}</span>
-      <span>${bar}<span class="sum-v ${typeof v==='number'?'':'none'}">${typeof v==='number'?(q.words?'':v):'tap to answer'}</span></span></div>`; }).join('');
-  c.innerHTML=`${complete?`<div class="done-banner">✓ ${cur===todayISO()?'Today':fmtShort(cur)} is logged</div>`:''}
-    <div class="step-q">Summary</div><div class="step-hint">Tap any line to change it</div>
-    ${rows}
-    <div class="sum-row" onclick="goStep(${MEDS_STEP})"><span class="sum-k">Meds</span><span class="sum-v ${taken.length===active.length&&active.length?'':'none'}" style="${taken.length===active.length&&active.length?'color:var(--good)':''}">${active.length?taken.length+' / '+active.length+' taken':'none set'}</span></div>
-    <div style="margin-top:14px"><div class="card-label"><span class="t">Anything else</span><span class="hint">side effects, appetite, headaches…</span></div>
-    <textarea id="note" placeholder="Optional">${esc(e.note||'')}</textarea></div>
-    <div class="step-nav"><button class="btn" onclick="goStep(${MEDS_STEP})">‹ Back</button><span class="cnt">${TOTAL_STEPS} / ${TOTAL_STEPS}</span>
-      ${cur<todayISO()?`<button class="btn" onclick="setDay('${addDays(cur,1)}')">Next day ›</button>`:`<button class="btn" onclick="go('trends')">Trends ›</button>`}</div>`;
-  const ta=c.querySelector('#note'); let nt;
-  ta.addEventListener('input',()=>{ clearTimeout(nt); nt=setTimeout(()=>{ entry(cur).note=ta.value; save(); },400); });
+    ${stepNav('Back','Next')}`;
   return c;
 }
 let advT;
@@ -575,6 +608,7 @@ function importJSON(inp){ const f=inp.files[0]; if(!f) return; const r=new FileR
 
 /* ---------------- boot ---------------- */
 save(); renderToday();
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
 </html>
