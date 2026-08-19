@@ -151,6 +151,16 @@ body {
 .hrow .hm .v.partial { color: var(--warn); }
 @media (max-width: 560px) { .hrow .hm { grid-template-columns: repeat(3, minmax(0,1fr)); } .hrow .hd { width: 70px; } }
 
+.rem-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.rem-label { font-weight: 600; font-size: 14.5px; }
+input[type="time"] { background: var(--bg-2); border: 1px solid var(--line); color: var(--text); height: 36px; border-radius: 10px; padding: 0 10px; font-size: 15px; font-weight: 700; font-family: inherit; color-scheme: dark; width: auto; }
+.switch { position: relative; display: inline-block; width: 46px; height: 28px; flex: none; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; inset: 0; background: rgba(255,255,255,.14); border-radius: 999px; cursor: pointer; transition: background .15s; }
+.slider:before { content: ""; position: absolute; width: 22px; height: 22px; left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform .15s; }
+.switch input:checked + .slider { background: var(--good); }
+.switch input:checked + .slider:before { transform: translateX(18px); }
+
 /* cards */
 .cards { display: flex; flex-direction: column; gap: 12px; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 15px 17px; }
@@ -301,6 +311,15 @@ td.num { font-variant-numeric: tabular-nums; }
     <div class="trend-head section-gap" style="margin-top:22px"><h2 style="font-size:18px">Change log</h2><button class="btn" onclick="showChangeForm()">+ Log change</button></div>
     <div class="card hidden" id="change-form"></div>
     <div class="card" id="change-list"></div>
+    <div class="card section-gap" id="reminder-card">
+      <h3>Daily reminder</h3>
+      <div class="rem-row">
+        <label class="switch"><input type="checkbox" id="rem-on" onchange="reminderChanged()"><span class="slider"></span></label>
+        <span class="rem-label">Remind me every day at</span>
+        <input type="time" id="rem-time" value="21:00" onchange="reminderChanged()">
+      </div>
+      <p class="small-muted" id="rem-note" style="margin:10px 0 0">One notification a day: take your meds and do the 30-second check-in.</p>
+    </div>
     <div class="card section-gap">
       <h3>Data</h3>
       <div class="io-row">
@@ -590,6 +609,7 @@ function renderBeforeAfter(){
 
 /* ---------------- meds ---------------- */
 function renderMeds(){
+  renderReminder('');
   const list=document.getElementById('med-list');
   const ms=[...db.meds].sort((a,b)=>(a.active===b.active?0:a.active?-1:1));
   list.innerHTML = ms.length? ms.map(m=>`<div class="mrow" style="${m.active?'':'opacity:.5'}"><div><div class="nm">${esc(m.name)}</div><div class="sub">${esc(m.dose)} · ${esc(m.when||'daily')}${m.active?'':' · stopped'}</div></div>
@@ -650,6 +670,34 @@ function saveChange(id){
 }
 function delChange(id){ if(!confirm('Delete this change-log entry?')) return; db.changes=db.changes.filter(c=>c.id!==id); save(); renderMeds(); }
 
+
+/* ---------------- daily reminder (iOS local notification) ---------------- */
+const LN = () => (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications) || null;
+function reminderSettings(){ db.settings = db.settings || {}; db.settings.reminder = db.settings.reminder || { on:false, time:'21:00' }; return db.settings.reminder; }
+async function scheduleReminder(){
+  const ln=LN(); const r=reminderSettings(); if(!ln) return false;
+  try { await ln.cancel({ notifications:[{ id:1 }] }); } catch(e) {}
+  if(!r.on) return true;
+  let perm = await ln.checkPermissions(); if(perm.display!=='granted') perm = await ln.requestPermissions();
+  if(perm.display!=='granted') return false;
+  const [h,m]=r.time.split(':').map(Number);
+  await ln.schedule({ notifications:[{ id:1, title:'Dose', body:'Meds, then your 30-second check-in.', schedule:{ on:{ hour:h, minute:m }, allowWhileIdle:true }, sound:'default' }] });
+  return true;
+}
+async function reminderChanged(){
+  const r=reminderSettings(); r.on=document.getElementById('rem-on').checked; r.time=document.getElementById('rem-time').value||'21:00'; save();
+  const ok=await scheduleReminder(); renderReminder(ok===false && r.on ? 'denied' : '');
+}
+function renderReminder(state){
+  const r=reminderSettings(); const on=document.getElementById('rem-on'), tm=document.getElementById('rem-time'), note=document.getElementById('rem-note');
+  on.checked=!!r.on; tm.value=r.time||'21:00';
+  if(!LN()){ on.disabled=true; tm.disabled=true; note.textContent='Reminders work in the iPhone app (not the web version).'; return; }
+  on.disabled=false; tm.disabled=false;
+  if(state==='denied') note.textContent='Notifications are off for Dose in iOS Settings — turn them on there, then flip this back on.';
+  else if(r.on){ const [h,m]=r.time.split(':').map(Number); const d=new Date(); d.setHours(h,m,0,0); note.textContent='Every day at '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'})+' — take your meds, then the 30-second check-in.'; }
+  else note.textContent='One notification a day: take your meds and do the 30-second check-in.';
+}
+
 /* ---------------- import / export ---------------- */
 function exportJSON(){ const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='dose-'+todayISO()+'.json'; a.click(); }
 function importJSON(inp){ const f=inp.files[0]; if(!f) return; const r=new FileReader(); r.onload=()=>{ try{ const d=JSON.parse(r.result); if(!d.entries||!d.meds) throw 0;
@@ -667,6 +715,7 @@ if (DEMO) {
   save = ()=>{};  // never persist demo data
 }
 save(); renderToday();
+if(reminderSettings().on) scheduleReminder();   // re-arm daily reminder on every launch
 { const sp=new URLSearchParams(location.search); const z=sp.get('zoom'); if(z) document.documentElement.style.zoom=z; const v=sp.get('view'); if(v&&['today','trends','meds'].includes(v)) go(v); const st=sp.get('step'); if(st!==null){ cur=sp.get('day')||cur; goStep(parseInt(st,10)); } }
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>

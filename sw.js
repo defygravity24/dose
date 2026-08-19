@@ -1,6 +1,6 @@
 // Dose service worker — cache the app shell so it opens offline.
 // Bump CACHE when index.html changes so phones pick up the new version.
-const CACHE = 'dose-v6';
+const CACHE = 'dose-v7';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 
 self.addEventListener('install', e => {
