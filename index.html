@@ -111,6 +111,7 @@ body {
 .face-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 12px 18px; cursor: pointer; border-bottom: 1px solid var(--line); font-weight: 700; font-size: 14px; }
 .face-head:hover { background: rgba(255,255,255,.02); }
 .face-ok { color: var(--good); } .face-partial { color: var(--warn); }
+.face-edited { color: var(--muted); font-weight: 600; }
 .face-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
 .ft { padding: 12px 10px 11px; text-align: center; cursor: pointer; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .ft:nth-child(3n) { border-right: 0; }
@@ -372,7 +373,10 @@ let step = null, stepDay = null;   // step === null → face card (idle); otherw
 function answered(e,q){ return typeof (e||{})[q.id]==='number'; }
 function isComplete(e){ return QUESTIONS.every(q=>answered(e,q)); }
 function firstOpenStep(e){ const i=QUESTIONS.findIndex(q=>!answered(e,q)); return i<0?0:i; }
-function flushNote(){ const ta=document.getElementById('note'); if(ta && (entry(cur).note||'')!==ta.value){ entry(cur).note=ta.value; save(); } }
+function stamp(e){ e.updatedAt=new Date().toISOString(); if(!e.loggedAt && isComplete(e)) e.loggedAt=e.updatedAt; }
+function fmtStamp(iso){ const d=new Date(iso); return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' · '+d.toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}); }
+function fmtTime(iso){ return new Date(iso).toLocaleTimeString(undefined,{hour:'numeric',minute:'2-digit'}); }
+function flushNote(){ const ta=document.getElementById('note'); if(ta && (entry(cur).note||'')!==ta.value){ const e=entry(cur); e.note=ta.value; stamp(e); save(); } }
 function goStep(s){ flushNote(); if(s===null||s>=TOTAL_STEPS){ step=null; } else step=Math.max(0,s); renderToday(); window.scrollTo(0,0); }
 function openFlow(){ goStep(firstOpenStep(db.entries[cur])); }
 
@@ -437,7 +441,7 @@ function faceCard(e){
     return `<div class="ft" onclick="event.stopPropagation(); goStep(${i})"><div class="ft-k">${q.short||q.label}</div>
       <div class="ft-v ${has?'':'none'}">${has?(q.words?q.words[v-1]:v):'–'}</div>
       <div class="ft-bar">${Array.from({length:q.max},(_,k)=>`<i class="${has&&k<v?'on':''}"></i>`).join('')}</div></div>`; }).join('');
-  c.innerHTML=`<div class="face-head" onclick="openFlow()"><span class="${complete?'face-ok':'face-partial'}">${complete?'✓ Logged':'In progress — tap to continue'}</span><span class="face-go">›</span></div>
+  c.innerHTML=`<div class="face-head" onclick="openFlow()"><span class="${complete?'face-ok':'face-partial'}">${complete?('✓ Logged'+(e.loggedAt?' '+fmtStamp(e.loggedAt):'')+(e.updatedAt&&e.loggedAt&&(new Date(e.updatedAt)-new Date(e.loggedAt))>60000?' <span class="face-edited">· edited '+fmtTime(e.updatedAt)+'</span>':'')):('In progress — tap to continue'+(e.updatedAt?' <span class="face-edited">· last '+fmtTime(e.updatedAt)+'</span>':''))}</span><span class="face-go">›</span></div>
     <div class="face-grid">${tiles}</div>
     <div class="face-foot">
       <div class="face-line" onclick="goStep(${MEDS_STEP})"><span>Meds</span><b style="${active.length&&taken.length===active.length?'color:var(--good)':''}">${active.length?taken.length+' / '+active.length+' taken':'none set'}</b></div>
@@ -476,10 +480,10 @@ function medsPage(e){
   return c;
 }
 let advT;
-function setVal(id,v){ const e=entry(cur); const was=e[id]; e[id] = was===v?undefined:v; save(); renderToday();
+function setVal(id,v){ const e=entry(cur); const was=e[id]; e[id] = was===v?undefined:v; stamp(e); save(); renderToday();
   clearTimeout(advT); if(e[id]!==undefined && step<MEDS_STEP) advT=setTimeout(()=>goStep(step+1),260); }
-function toggleMed(id){ const e=entry(cur); e.meds=e.meds||{}; e.meds[id]=!e.meds[id]; save(); renderToday(); }
-function allMeds(on){ const e=entry(cur); e.meds={}; if(on) db.meds.filter(m=>m.active).forEach(m=>e.meds[m.id]=true); save(); renderToday(); }
+function toggleMed(id){ const e=entry(cur); e.meds=e.meds||{}; e.meds[id]=!e.meds[id]; stamp(e); save(); renderToday(); }
+function allMeds(on){ const e=entry(cur); e.meds={}; if(on) db.meds.filter(m=>m.active).forEach(m=>e.meds[m.id]=true); stamp(e); save(); renderToday(); }
 
 /* week strip: last 7 days vs the 7 before */
 function renderWeekStrip(){
