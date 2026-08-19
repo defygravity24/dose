@@ -86,7 +86,7 @@ body {
 .wk .d.up { color: var(--good); } .wk .d.down { color: var(--bad); } .wk .d.flat { color: var(--muted); }
 .week-title { display: flex; justify-content: space-between; align-items: baseline; color: var(--muted); font-size: 12.5px; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; letter-spacing: .4px; }
 .week-title b { color: var(--text); font-weight: 800; text-transform: none; letter-spacing: 0; font-size: 13.5px; }
-@media (max-width: 420px) { .week-strip { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 560px) { .week-strip { grid-template-columns: repeat(3, 1fr); } }
 
 /* step dots */
 .dots { display: flex; gap: 6px; align-items: center; margin-bottom: 14px; }
@@ -143,13 +143,13 @@ body {
 .hrow .hs b { font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .hrow .hs b small { font-size: 10.5px; color: var(--muted); font-weight: 700; }
 .hrow .hs span { display: block; color: var(--muted); font-size: 10.5px; font-weight: 700; }
-.hrow .hm { flex: 1; display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; min-width: 0; }
+.hrow .hm { flex: 1; display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 4px; min-width: 0; overflow: hidden; }
 .hrow .hm div { text-align: center; }
 .hrow .hm .k { color: var(--muted); font-size: 9.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hrow .hm .v { font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; }
 .hrow .hm .v.none { color: rgba(139,151,167,.5); }
 .hrow .hm .v.partial { color: var(--warn); }
-@media (max-width: 420px) { .hrow .hm { grid-template-columns: repeat(3, 1fr); } .hrow .hd { width: 70px; } }
+@media (max-width: 560px) { .hrow .hm { grid-template-columns: repeat(3, minmax(0,1fr)); } .hrow .hd { width: 70px; } }
 
 /* cards */
 .cards { display: flex; flex-direction: column; gap: 12px; }
@@ -656,7 +656,18 @@ function importJSON(inp){ const f=inp.files[0]; if(!f) return; const r=new FileR
   if(!confirm('Replace everything on this device with the imported file?')) return; db=d; save(); go(view); }catch(e){ alert('That file doesn\'t look like a Dose export.'); } inp.value=''; }; r.readAsText(f); }
 
 /* ---------------- boot ---------------- */
+/* ?demo=1 → in-memory sample data for screenshots/previews. Never written to storage. */
+const DEMO = new URLSearchParams(location.search).get('demo')==='1';
+if (DEMO) {
+  const t=todayISO(); const entries={};
+  const pat=[[4,2,4,2,4,2],[3,3,3,3,3,1],[4,2,4,2,4,3],[2,4,2,4,2,1],[3,3,3,2,3,2],[4,2,4,2,4,2],[5,1,4,1,5,3],[3,3,3,3,2,1],[4,2,3,2,4,2],[4,1,4,2,4,3],[3,3,2,3,3,1],[2,3,2,3,3,1],[3,3,3,3,4,2],[2,4,2,4,2,1],[3,3,3,3,3,2],[2,4,2,3,3,1],[3,3,2,3,3,2],[2,4,2,4,2,1],[3,4,3,3,3,1],[2,4,2,3,2,2]];
+  pat.forEach((p,i)=>{ const d=addDays(t,-i); const [mood,dep,focus,overwhelm,sleep,active]=p; const at=new Date(fromISO(d)); at.setHours(21,10+i%7,0,0);
+    entries[d]={mood,dep,focus,overwhelm,sleep,active,meds:{strattera:true,wellbutrin:i<4,abilify:true,lamotrigine:true},note:i===2?'Slight headache after lunch, gone by evening.':'',loggedAt:at.toISOString(),updatedAt:at.toISOString()}; });
+  db={entries,meds:JSON.parse(JSON.stringify(SEED.meds)),changes:[{id:'c1',date:addDays(t,-3),med:'Wellbutrin',type:'started',dose:'150 mg',note:''},{id:'c2',date:addDays(t,-3),med:'Strattera',type:'increased',dose:'100 mg',note:''}]};
+  save = ()=>{};  // never persist demo data
+}
 save(); renderToday();
+{ const sp=new URLSearchParams(location.search); const z=sp.get('zoom'); if(z) document.documentElement.style.zoom=z; const v=sp.get('view'); if(v&&['today','trends','meds'].includes(v)) go(v); const st=sp.get('step'); if(st!==null){ cur=sp.get('day')||cur; goStep(parseInt(st,10)); } }
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
